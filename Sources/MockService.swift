@@ -1,5 +1,5 @@
 import Foundation
-import Nimble
+import XCTest
 
 @objc
 open class MockService: NSObject {
@@ -164,15 +164,15 @@ open class MockService: NSObject {
     _ file: FileString? = #file,
     line: UInt? = #line,
     timeout: TimeInterval = 30,
-    testFunction: @escaping (_ testComplete: @escaping () -> Void) -> Void
-  ) {
-    waitUntilWithLocation(timeout: timeout, file: file, line: line) { done in
-      self
+    testFunction: @escaping (_ testComplete: @escaping () -> Void) throws -> Void
+  ) rethrows {
+    try waitUntilWithLocation(timeout: timeout, file: file, line: line) { done in
+      try self
         .pactVerificationService
         .setup(self.interactions) { result in
           switch result {
           case .success:
-            testFunction { done() }
+            try testFunction { done() }
           case .failure(let error):
             self.failWithLocation("Error setting up pact: \(error.localizedDescription)", file: file, line: line)
             done()
@@ -215,12 +215,17 @@ open class MockService: NSObject {
     timeout: TimeInterval,
     file: FileString?,
     line: UInt?,
-    action: @escaping (@escaping () -> Void) -> Void
-  ) {
-    if let fileName = file, let lineNumber = line {
-      return waitUntil(timeout: timeout, file: fileName, line: lineNumber, action: action)
-    } else {
-      return waitUntil(timeout: timeout, action: action)
-    }
+    action: @escaping (@escaping () -> Void) throws -> Void
+  ) rethrows {
+    let expectation = XCTestExpectation()
+
+    try action { expectation.fulfill() }
+
+    //TODO: the 'with location' bit is probably important.
+//    if let fileName = file, let lineNumber = line {
+//      return try waitUntil(timeout: timeout, file: fileName, line: lineNumber, action: action)
+//    } else {
+//      return try waitUntil(timeout: timeout, action: action)
+//    }
   }
 }
